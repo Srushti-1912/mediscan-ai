@@ -1,4 +1,10 @@
 import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# -------------------------------
+# UI STYLING
+# -------------------------------
 st.markdown("""
 <style>
 
@@ -31,6 +37,7 @@ section[data-testid="stSidebar"] {
 .title {
     color: #2D2D2D;
     font-size: 26px;
+    font-weight: bold;
 }
 
 .subtext {
@@ -39,11 +46,9 @@ section[data-testid="stSidebar"] {
 
 </style>
 """, unsafe_allow_html=True)
-import pandas as pd
-import matplotlib.pyplot as plt
 
 # -------------------------------
-# In-memory storage (instead of Firebase)
+# In-memory storage
 # -------------------------------
 if "health_logs" not in st.session_state:
     st.session_state.health_logs = []
@@ -52,7 +57,7 @@ if "alerts" not in st.session_state:
     st.session_state.alerts = []
 
 # -------------------------------
-# AI LOGIC (Simple but effective)
+# AI LOGIC
 # -------------------------------
 def analyze_health(data):
     risk = 0
@@ -93,7 +98,7 @@ st.sidebar.title("MediScan AI")
 page = st.sidebar.selectbox("Go to", ["User Input", "Dashboard", "Doctor Panel"])
 
 # -------------------------------
-# USER INPUT PAGE
+# USER INPUT
 # -------------------------------
 if page == "User Input":
     st.title("🧾 Daily Health Check-in")
@@ -119,6 +124,7 @@ if page == "User Input":
 # DASHBOARD
 # -------------------------------
 elif page == "Dashboard":
+
     st.markdown("<div class='title'>📊 Health Dashboard</div>", unsafe_allow_html=True)
     st.markdown("<div class='subtext'>Monitor your health insights</div>", unsafe_allow_html=True)
 
@@ -128,42 +134,43 @@ elif page == "Dashboard":
         st.warning("No data yet. Please enter health data first.")
     else:
         df = pd.DataFrame(data)
-
-        # Analyze
         result = analyze_health(data)
-        
-        #display metrics
+
+        # MAIN CARD
         st.markdown("<div class='card'>", unsafe_allow_html=True)
 
         col1, col2 = st.columns(2)
 
         with col1:
-        st.markdown("<div class='inner-card'>", unsafe_allow_html=True)
-        st.markdown("### Risk Score")
-        st.metric("", result["risk_score"])
-        st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown("<div class='inner-card'>", unsafe_allow_html=True)
+            st.markdown("### Risk Score")
+            st.metric("", result["risk_score"])
+            st.markdown("</div>", unsafe_allow_html=True)
 
         with col2:
-        st.markdown("<div class='inner-card'>", unsafe_allow_html=True)
-        st.markdown("### Diagnosis")
-        st.write(result["diagnosis"])
-        st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown("<div class='inner-card'>", unsafe_allow_html=True)
+            st.markdown("### Diagnosis")
+            st.write(result["diagnosis"])
+            st.markdown("</div>", unsafe_allow_html=True)
 
         st.markdown("</div>", unsafe_allow_html=True)
+
+        # RISK COLOR
         risk = result["risk_score"]
 
         if risk < 40:
             st.markdown("<h4 style='color:#6DBFB8;'>● Low Risk</h4>", unsafe_allow_html=True)
         elif risk < 70:
-              st.markdown("<h4 style='color:#E8C44A;'>● Moderate Risk</h4>", unsafe_allow_html=True)
+            st.markdown("<h4 style='color:#E8C44A;'>● Moderate Risk</h4>", unsafe_allow_html=True)
         else:
             st.markdown("<h4 style='color:#E07070;'>● High Risk</h4>", unsafe_allow_html=True)
 
+        # INSIGHTS
         st.write("### Insights:")
         for i in result["insights"]:
             st.write("-", i)
 
-        # Plot sleep trend
+        # GRAPH CARD
         st.markdown("<div class='card'>", unsafe_allow_html=True)
 
         st.markdown("### Sleep Trend")
@@ -177,9 +184,8 @@ elif page == "Dashboard":
         plt.clf()
 
         st.markdown("</div>", unsafe_allow_html=True)
-        plt.clf()
 
-        # ALERT SYSTEM
+        # ALERT
         if result["alert"]:
             alert_msg = {
                 "message": "🚨 High Risk Patient Detected",
@@ -187,21 +193,23 @@ elif page == "Dashboard":
             }
 
             st.session_state.alerts.append(alert_msg)
+
             st.markdown("""
-<div style="
-    background-color:#FFFFFF;
-    padding:15px;
-    border-radius:15px;
-    border-left:6px solid #E07070;">
-    <h4 style="color:#2D2D2D;">🚨 Critical Alert</h4>
-    <p style="color:#7A7A7A;">Doctor has been notified.</p>
-</div>
-""", unsafe_allow_html=True)
+            <div style="
+                background-color:#FFFFFF;
+                padding:15px;
+                border-radius:15px;
+                border-left:6px solid #E07070;">
+                <h4 style="color:#2D2D2D;">🚨 Critical Alert</h4>
+                <p style="color:#7A7A7A;">Doctor has been notified.</p>
+            </div>
+            """, unsafe_allow_html=True)
 
 # -------------------------------
 # DOCTOR PANEL
 # -------------------------------
 elif page == "Doctor Panel":
+
     st.markdown("<div class='title'>🩺 Doctor Dashboard</div>", unsafe_allow_html=True)
 
     alerts = st.session_state.alerts
@@ -210,15 +218,15 @@ elif page == "Doctor Panel":
         st.success("No critical alerts 🎉")
     else:
         for i, alert in enumerate(alerts):
-    st.markdown(f"""
-    <div style="
-        background-color:#FFFFFF;
-        padding:15px;
-        border-radius:15px;
-        border-left:6px solid #C4A8BC;
-        margin-bottom:10px;">
-        <h4>Patient {i+1}</h4>
-        <p>Risk Score: {alert['risk_score']}</p>
-        <p>{alert['message']}</p>
-    </div>
-    """, unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="
+                background-color:#FFFFFF;
+                padding:15px;
+                border-radius:15px;
+                border-left:6px solid #C4A8BC;
+                margin-bottom:10px;">
+                <h4>Patient {i+1}</h4>
+                <p>Risk Score: {alert['risk_score']}</p>
+                <p>{alert['message']}</p>
+            </div>
+            """, unsafe_allow_html=True)
