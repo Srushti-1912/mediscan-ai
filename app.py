@@ -1,164 +1,174 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 
 # -------------------------------
-# 🎨 UI STYLING
+# 🎨 UI
 # -------------------------------
 st.markdown("""
 <style>
+.stApp {background-color: #F2EAE4;}
+section[data-testid="stSidebar"] {background-color: #FAF6F2;}
 
-/* Page */
-.stApp {
-    background-color: #F2EAE4;
-}
-
-/* Sidebar */
-section[data-testid="stSidebar"] {
-    background-color: #FAF6F2;
-}
-
-/* Header */
-.header {
-    font-size: 26px;
-    font-weight: bold;
-    color: #2D2D2D;
-}
-
-/* Card */
 .card {
-    background-color: #D9C9D4;
+    background: #D9C9D4;
     padding: 20px;
     border-radius: 20px;
     margin-bottom: 20px;
 }
-
-/* Inner white */
 .inner {
-    background-color: white;
+    background: #FFFFFF;
     padding: 15px;
     border-radius: 15px;
 }
-
-/* Right panel cards */
-.stat-card {
-    background-color: #C4A8BC;
-    padding: 20px;
-    border-radius: 20px;
-    text-align: center;
-    color: white;
-    margin-bottom: 15px;
-}
-
-/* Buttons */
 .stButton>button {
     background-color: #B89BB0;
     color: white;
     border-radius: 10px;
 }
-
 </style>
 """, unsafe_allow_html=True)
 
 # -------------------------------
-# STORAGE
+# SESSION STORAGE
 # -------------------------------
-if "health_logs" not in st.session_state:
-    st.session_state.health_logs = []
+if "user" not in st.session_state:
+    st.session_state.user = None
+if "role" not in st.session_state:
+    st.session_state.role = None
+if "data" not in st.session_state:
+    st.session_state.data = []
+if "alerts" not in st.session_state:
+    st.session_state.alerts = []
 
 # -------------------------------
-# ANALYSIS
+# LOGIN
 # -------------------------------
-def analyze(data):
+if st.session_state.user is None:
+    st.title("💜 MediScan Login")
+
+    role = st.selectbox("Login as", ["Patient", "Doctor"])
+    name = st.text_input("Enter your name")
+
+    if st.button("Login"):
+        st.session_state.user = name
+        st.session_state.role = role
+        st.rerun()
+
+    st.stop()
+
+# -------------------------------
+# AI LOGIC
+# -------------------------------
+def analyze(entry):
     risk = 0
-    for d in data:
-        if d["sleep"] < 5:
-            risk += 30
-        if d["mood"] <= 2:
-            risk += 20
-    return risk
+    action = "You're fine 😊"
+
+    if entry["sleep"] < 5:
+        risk += 30
+        action = "Get proper sleep"
+
+    if entry["mood"] <= 2:
+        risk += 20
+        action = "Relax and reduce stress"
+
+    if entry["meal"] == "Skipped":
+        risk += 20
+        action = "Eat immediately"
+
+    if "Fever" in entry["symptoms"]:
+        risk += 25
+        action = "Take rest + hydrate"
+
+    if risk > 70:
+        action = "🚨 Visit doctor immediately"
+
+    return risk, action
 
 # -------------------------------
-# SIDEBAR
+# PATIENT DASHBOARD
 # -------------------------------
-st.sidebar.title("💜 MediScan")
-page = st.sidebar.radio("Menu", ["Input", "Dashboard"])
+if st.session_state.role == "Patient":
 
-# -------------------------------
-# INPUT PAGE
-# -------------------------------
-if page == "Input":
+    st.title(f"Hello {st.session_state.user} 👋")
 
-    st.title("Daily Check")
-
-    sleep = st.slider("Sleep", 0, 12, 6)
+    sleep = st.slider("Sleep Hours", 0, 12, 6)
     mood = st.slider("Mood", 1, 5, 3)
+    meal = st.selectbox("Meal Timing", ["On time", "Late", "Skipped"])
+    symptoms = st.multiselect("Symptoms", ["Fever", "Headache", "Cough"])
 
     if st.button("Submit"):
-        st.session_state.health_logs.append({
+        entry = {
+            "name": st.session_state.user,
             "sleep": sleep,
-            "mood": mood
-        })
-        st.success("Saved!")
+            "mood": mood,
+            "meal": meal,
+            "symptoms": symptoms
+        }
+
+        risk, action = analyze(entry)
+
+        entry["risk"] = risk
+        entry["action"] = action
+
+        st.session_state.data.append(entry)
+
+        if risk > 70:
+            st.session_state.alerts.append(entry)
+
+        st.success("Data saved!")
+
+    # SHOW RESULTS
+    if st.session_state.data:
+        latest = st.session_state.data[-1]
+
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+
+        st.markdown("<div class='inner'>", unsafe_allow_html=True)
+        st.metric("Risk Score", latest["risk"])
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        st.write("### Immediate Action")
+        st.info(latest["action"])
+
+        st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------------
-# DASHBOARD
+# DOCTOR PANEL
 # -------------------------------
-else:
+elif st.session_state.role == "Doctor":
 
-    st.markdown("<div class='header'>Hello User 👋</div>", unsafe_allow_html=True)
+    st.title("🩺 Doctor Dashboard")
 
-    data = st.session_state.health_logs
+    st.write("### Working Hours")
+    start = st.time_input("Start Time")
+    end = st.time_input("End Time")
 
-    if not data:
-        st.warning("No data yet")
+    st.success(f"Available: {start} - {end}")
+
+    alerts = sorted(st.session_state.alerts, key=lambda x: x["risk"], reverse=True)
+
+    if not alerts:
+        st.success("No high-risk patients")
     else:
-        df = pd.DataFrame(data)
-        risk = analyze(data)
+        for i, p in enumerate(alerts):
 
-        # MAIN LAYOUT
-        left, middle, right = st.columns([2,2,1])
+            st.markdown(f"""
+            <div style="
+                background:#FFFFFF;
+                padding:15px;
+                border-radius:15px;
+                margin-bottom:10px;
+                border-left:6px solid red;">
+                <h4>{p['name']}</h4>
+                <p>Risk: {p['risk']}</p>
+                <p>Symptoms: {p['symptoms']}</p>
+            </div>
+            """, unsafe_allow_html=True)
 
-        # LEFT COLUMN
-        with left:
-            st.markdown("<div class='card'>", unsafe_allow_html=True)
+            if st.button(f"Call {p['name']}"):
+                st.success("Calling patient...")
 
-            st.markdown("### 📊 Health Summary")
+            prescription = st.text_input(f"Prescription for {p['name']}")
 
-            st.markdown("<div class='inner'>", unsafe_allow_html=True)
-            st.metric("Risk Score", risk)
-            st.markdown("</div>", unsafe_allow_html=True)
-
-            st.markdown("</div>", unsafe_allow_html=True)
-
-            # GRAPH
-            st.markdown("<div class='card'>", unsafe_allow_html=True)
-
-            st.markdown("### 📈 Sleep Trend")
-
-            plt.figure()
-            plt.plot(df["sleep"])
-            st.pyplot(plt)
-
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        # MIDDLE COLUMN
-        with middle:
-            st.markdown("<div class='card'>", unsafe_allow_html=True)
-
-            st.markdown("### 🧠 Insights")
-
-            if risk > 70:
-                st.error("High Risk")
-            elif risk > 40:
-                st.warning("Moderate Risk")
-            else:
-                st.success("Low Risk")
-
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        # RIGHT COLUMN (LIKE IMAGE)
-        with right:
-            st.markdown("<div class='stat-card'>Attendance<br><h2>60%</h2></div>", unsafe_allow_html=True)
-            st.markdown("<div class='stat-card'>Homework<br><h2>90%</h2></div>", unsafe_allow_html=True)
-            st.markdown("<div class='stat-card'>Rating<br><h2>75%</h2></div>", unsafe_allow_html=True)
+            if st.button(f"Save {p['name']}"):
+                st.success("Prescription saved")
